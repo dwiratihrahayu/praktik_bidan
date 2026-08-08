@@ -1,0 +1,152 @@
+/* Dedicated CSS for Login Page */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body { 
+    background-color: #0f172a; 
+    min-height: 100vh; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    padding: 20px; 
+}
+
+.login-card { 
+    background: #ffffff; 
+    width: 100%; 
+    max-width: 400px; 
+    padding: 35px 30px; 
+    border-radius: 16px; 
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); 
+    text-align: center; 
+}
+
+.logo-container { 
+    width: 85px; 
+    height: 85px; 
+    background-color: #f0f9ff; 
+    border: 2px solid #bae6fd; 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    margin: 0 auto 15px auto; 
+    box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.1);
+    overflow: hidden;
+}
+
+.logo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.logo-fallback-icon {
+    font-size: 38px;
+    color: #0284c7;
+}
+
+.login-header h2 { 
+    font-size: 20px; 
+    color: #0f172a; 
+    font-weight: 700; 
+    letter-spacing: 0.5px; 
+}
+
+.login-header p { 
+    font-size: 13px; 
+    color: #64748b; 
+    margin-top: 4px; 
+    margin-bottom: 25px; 
+}
+
+.alert-error { 
+    background-color: #fef2f2; 
+    border: 1px solid #fecdd3; 
+    color: #ef4444; 
+    padding: 10px 14px; 
+    border-radius: 8px; 
+    font-size: 13px; 
+    margin-bottom: 20px; 
+    text-align: left; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+
+.form-group { 
+    margin-bottom: 18px; 
+    text-align: left; 
+}
+
+.form-group label { 
+    display: block; 
+    font-size: 12px; 
+    font-weight: 600; 
+    color: #475569; 
+    margin-bottom: 6px; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+
+.input-icon-wrapper { 
+    position: relative; 
+}
+
+.input-icon-wrapper i { 
+    position: absolute; 
+    left: 14px; 
+    top: 50%; 
+    transform: translateY(-50%); 
+    color: #94a3b8; 
+    font-size: 14px; 
+}
+
+.form-control { 
+    width: 100%; 
+    padding: 12px 14px 12px 40px; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 8px; 
+    font-size: 14px; 
+    outline: none; 
+    transition: all 0.2s; 
+}
+
+select.form-control { 
+    padding-left: 40px; 
+    cursor: pointer; 
+    background-color: #fff; 
+}
+
+.form-control:focus { 
+    border-color: #0284c7; 
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15); 
+}
+
+.btn-login { 
+    width: 100%; 
+    padding: 12px; 
+    background-color: #0284c7; 
+    color: #ffffff; 
+    border: none; 
+    border-radius: 8px; 
+    font-size: 14px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: background-color 0.2s; 
+    margin-top: 10px; 
+}
+
+.btn-login:hover { 
+    background-color: #0369a1; 
+}
+
+.login-footer { 
+    margin-top: 25px; 
+    font-size: 12px; 
+    color: #94a3b8; 
+}
