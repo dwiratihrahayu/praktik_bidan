@@ -12,7 +12,6 @@ if (!isset($_SESSION['login'])) {
 }
 
 $pesan_error = "";
-$pesan_sukses = "";
 
 // --- 1. OTOMATIS BUAT TABEL JIKA BELUM ADA ---
 $create_table = "CREATE TABLE IF NOT EXISTS `pelayanan` (
@@ -62,6 +61,14 @@ if (isset($_GET['hapus'])) {
     }
 }
 
+// --- Data edit jika ada param ?edit=... ---
+$edit_data = null;
+if (isset($_GET['edit'])) {
+    $edit_id = mysqli_real_escape_string($koneksi, $_GET['edit']);
+    $r = mysqli_query($koneksi, "SELECT * FROM pelayanan WHERE id_pelayanan='$edit_id'");
+    if ($r) $edit_data = mysqli_fetch_assoc($r);
+}
+
 // --- 4. PENCARIAN & QUERY DATA ---
 $keyword = isset($_GET['cari']) ? mysqli_real_escape_string($koneksi, $_GET['cari']) : '';
 $where = $keyword ? "WHERE jenis_pelayanan LIKE '%$keyword%' OR id_pelayanan LIKE '%$keyword%' OR keterangan LIKE '%$keyword%'" : "";
@@ -92,16 +99,50 @@ include 'includes/sidebar.php';
             <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> Data pelayanan berhasil dihapus!</div>
         <?php endif; ?>
 
+        <!-- ========== FORM INPUT LANGSUNG DI HALAMAN ========== -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <h5><i class="fa-solid fa-hand-holding-medical"></i> <?php echo $edit_data ? 'Edit Data Pelayanan' : 'Input Data Pelayanan'; ?></h5>
+            </div>
+            <form action="pelayanan.php" method="POST">
+                <div class="form-inline-row">
+                    <label>ID Pelayanan :</label>
+                    <input type="text" name="id_pelayanan" required maxlength="10" 
+                        value="<?php echo htmlspecialchars($edit_data['id_pelayanan'] ?? ''); ?>"
+                        <?php echo $edit_data ? 'readonly style="background:#f8fafc; color:#64748b;"' : ''; ?>>
+                </div>
+                <div class="form-inline-row">
+                    <label>Jenis Pelayanan :</label>
+                    <select name="jenis_pelayanan" required>
+                        <option value="Pelayanan Bayi" <?php echo (($edit_data['jenis_pelayanan'] ?? 'Pelayanan Bayi') == 'Pelayanan Bayi') ? 'selected' : ''; ?>>Pelayanan Bayi</option>
+                        <option value="Pelayanan Wanita" <?php echo (($edit_data['jenis_pelayanan'] ?? '') == 'Pelayanan Wanita') ? 'selected' : ''; ?>>Pelayanan Wanita</option>
+                        <option value="Terapi Patologi" <?php echo (($edit_data['jenis_pelayanan'] ?? '') == 'Terapi Patologi') ? 'selected' : ''; ?>>Terapi Patologi</option>
+                    </select>
+                </div>
+                <div class="form-inline-row">
+                    <label>Keterangan :</label>
+                    <textarea name="keterangan" rows="2" placeholder="Rincian pelayanan..."><?php echo htmlspecialchars($edit_data['keterangan'] ?? ''); ?></textarea>
+                </div>
+
+                <div class="form-action-row">
+                    <button type="submit" name="simpan_pelayanan" class="btn-form-simpan"><i class="fa-solid fa-floppy-disk"></i> Simpan</button>
+                    <a href="pelayanan.php" class="btn-form-batal"><i class="fa-solid fa-xmark"></i> Batal</a>
+                    <a href="pelayanan.php" class="btn-form-selesai"><i class="fa-solid fa-check-double"></i> Selesai</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- ========== PENCARIAN & TABEL ========== -->
         <div class="table-card">
             <div class="table-header">
-                <button class="btn-add" onclick="openFormModal()">
-                    <i class="fa-solid fa-plus"></i> Tambah Pelayanan
-                </button>
-
                 <form action="pelayanan.php" method="GET" class="search-box">
+                    <label style="font-weight:600; color:var(--text-main); white-space:nowrap;">Cari Nama ... :</label>
                     <input type="text" name="cari" placeholder="Cari ID / Jenis Pelayanan..." value="<?php echo htmlspecialchars($keyword); ?>">
-                    <button type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
+                    <button type="submit" class="btn-cari"><i class="fa-solid fa-magnifying-glass"></i> CARI</button>
                 </form>
+            </div>
+            <div class="table-action-row">
+                <a href="pelayanan.php" class="btn-tambah"><i class="fa-solid fa-plus"></i> TAMBAH</a>
             </div>
 
             <div class="table-responsive">
@@ -124,9 +165,9 @@ include 'includes/sidebar.php';
                             <td><span class="badge badge-info"><?php echo htmlspecialchars($row['jenis_pelayanan']); ?></span></td>
                             <td><?php echo htmlspecialchars($row['keterangan'] ?? '-'); ?></td>
                             <td>
-                                <button class="btn-action btn-edit" onclick='openFormModal(<?php echo json_encode($row); ?>)' title="Edit">
+                                <a href="pelayanan.php?edit=<?php echo urlencode($row['id_pelayanan']); ?>" class="btn-action btn-edit" title="Edit">
                                     <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
+                                </a>
                                 <a href="pelayanan.php?hapus=<?php echo $row['id_pelayanan']; ?>" class="btn-action btn-delete" onclick="return confirm('Hapus data pelayanan ini?')" title="Hapus">
                                     <i class="fa-solid fa-trash"></i>
                                 </a>
@@ -144,72 +185,5 @@ include 'includes/sidebar.php';
         </div>
     </div>
 </div>
-
-<!-- Modal Form Tambah/Edit Pelayanan -->
-<div class="modal-overlay" id="pelayananModal">
-    <div class="modal-box">
-        <h3 id="modalTitle">Tambah Data Pelayanan</h3>
-        <form action="pelayanan.php" method="POST">
-            
-            <div class="form-group">
-                <label>ID Pelayanan (Maksimal 10 Karakter)</label>
-                <input type="text" name="id_pelayanan" id="id_pelayanan" required placeholder="Contoh: PLY-01">
-            </div>
-
-            <div class="form-group">
-                <label>Jenis Pelayanan</label>
-                <select name="jenis_pelayanan" id="jenis_pelayanan" required>
-                    <option value="Pelayanan Bayi">Pelayanan Bayi</option>
-                    <option value="Pelayanan Wanita">Pelayanan Wanita</option>
-                    <option value="Terapi Patologi">Terapi Patologi</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Keterangan / Rincian Layanan</label>
-                <textarea name="keterangan" id="keterangan" rows="3" placeholder="Rincian pelayanan..."></textarea>
-            </div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" onclick="closeFormModal()">Batal</button>
-                <button type="submit" name="simpan_pelayanan" class="btn-submit">Simpan</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    function openFormModal(data = null) {
-        const modal = document.getElementById('pelayananModal');
-        const inputId = document.getElementById('id_pelayanan');
-
-        if (data) {
-            document.getElementById('modalTitle').innerText = "Edit Data Pelayanan";
-            inputId.value = data.id_pelayanan;
-            inputId.readOnly = true;
-            inputId.style.background = "#f8fafc";
-            
-            document.getElementById('jenis_pelayanan').value = data.jenis_pelayanan;
-            document.getElementById('keterangan').value = data.keterangan;
-        } else {
-            document.getElementById('modalTitle').innerText = "Tambah Pelayanan Baru";
-            inputId.value = '';
-            inputId.readOnly = false;
-            inputId.style.background = "#ffffff";
-            
-            document.getElementById('jenis_pelayanan').value = 'Pelayanan Bayi';
-            document.getElementById('keterangan').value = '';
-        }
-        modal.style.display = 'flex';
-    }
-
-    function closeFormModal() { 
-        document.getElementById('pelayananModal').style.display = 'none'; 
-    }
-
-    window.onclick = function(e) {
-        if (e.target === document.getElementById('pelayananModal')) closeFormModal();
-    }
-</script>
 
 <?php include 'includes/footer.php'; ?>
