@@ -17,7 +17,6 @@ $query_pasien = mysqli_query($koneksi, "SELECT * FROM pasien WHERE nama_pasien =
 $data_pasien_master = mysqli_fetch_assoc($query_pasien);
 
 if ($data_pasien_master) {
-    // Jika data ditemukan di tabel pasien (hasil pendaftaran oleh admin)
     $nama_pasien   = $data_pasien_master['nama_pasien'];
     $no_rm         = $data_pasien_master['no_rm'];
     $no_hp         = $data_pasien_master['no_hp'] ?? '-';
@@ -27,7 +26,6 @@ if ($data_pasien_master) {
     $jenis_kelamin = $data_pasien_master['jenis_kelamin'] ?? '-';
     $nama_ortu     = $data_pasien_master['nama_orang_tua'] ?? '-';
 } else {
-    // Fallback jika belum pernah didaftarkan secara detail (belum ada di tabel pasien)
     $nama_pasien   = $nama_lengkap_session ?? $username;
     $no_rm         = 'RM' . str_pad($user_id, 3, '0', STR_PAD_LEFT); 
     $no_hp         = '-';
@@ -43,6 +41,20 @@ $notif_sukses = "";
 $notif_error  = "";
 $aktifkan_tab = "dashboard"; 
 
+// Pastikan tabel petugas ada dan memiliki minimal 1 petugas default
+mysqli_query($koneksi, "CREATE TABLE IF NOT EXISTS `petugas` (
+  `id_petugas` VARCHAR(20) NOT NULL,
+  `nama_petugas` VARCHAR(100) NOT NULL,
+  PRIMARY KEY (`id_petugas`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+$cek_petugas = mysqli_query($koneksi, "SELECT COUNT(*) as jml FROM petugas");
+if ($cek_petugas && $row_petugas = mysqli_fetch_assoc($cek_petugas)) {
+    if ($row_petugas['jml'] == 0) {
+        mysqli_query($koneksi, "INSERT INTO petugas (id_petugas, nama_petugas) VALUES ('P01', 'Admin Utama'), ('P02', 'Petugas Pendaftaran 1')");
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['simpan_pendaftaran_online'])) {
     $id_pendaftaran   = mysqli_real_escape_string($koneksi, $_POST['id_pendaftaran']);
     $tanggal_periksa  = mysqli_real_escape_string($koneksi, $_POST['tanggal_periksa']);
@@ -50,24 +62,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['simpan_pendaftaran_onl
     $keluhan          = mysqli_real_escape_string($koneksi, $_POST['keluhan']);
     $tanggal_daftar   = date('Y-m-d');
     $status_validasi  = 'Datang';
-    $id_petugas       = 'Admin'; 
     
-    // Pastikan data pasien tercatat di tabel master pasien
+    $q_pet = mysqli_query($koneksi, "SELECT id_petugas FROM petugas ORDER BY id_petugas ASC LIMIT 1");
+    $id_petugas = 'P01';
+    if ($q_pet && mysqli_num_rows($q_pet) > 0) {
+        $r_pet = mysqli_fetch_assoc($q_pet);
+        $id_petugas = $r_pet['id_petugas'];
+    }
+    
     mysqli_query($koneksi, "INSERT IGNORE INTO pasien (no_rm, nama_pasien) VALUES ('$no_rm', '$nama_pasien')");
 
-    $query_insert = "INSERT INTO pendaftaran (id_pendaftaran, no_rm, id_petugas, tanggal_daftar, tanggal_periksa, id_pelayanan, keluhan, status_validasi) 
-                     VALUES ('$id_pendaftaran', '$no_rm', '$id_petugas', '$tanggal_daftar', '$tanggal_periksa', '$id_pelayanan', '$keluhan', '$status_validasi')";
+    $query_insert = "INSERT INTO pendaftaran (id_pendaftaran, no_rm, id_petugas, id_bidan_terapis, tanggal_daftar, tanggal_periksa, id_pelayanan, keluhan, status_validasi) 
+                     VALUES ('$id_pendaftaran', '$no_rm', '$id_petugas', NULL, '$tanggal_daftar', '$tanggal_periksa', '$id_pelayanan', '$keluhan', '$status_validasi')";
 
     if (mysqli_query($koneksi, $query_insert)) {
-        // --- SINKRONISASI OTOMATIS: Buat record pemeriksaan awal ---
+        // --- SINKRONISASI OTOMATIS: Buat record pemeriksaan awal agar terhubung ---
         $q_pmr_max = mysqli_query($koneksi, "SELECT MAX(CAST(SUBSTRING(id_pemeriksaan, 4) AS UNSIGNED)) as max_no FROM pemeriksaan WHERE id_pemeriksaan LIKE 'PMR%'");
         $r_pmr_max = mysqli_fetch_assoc($q_pmr_max);
         $no_pmr    = ($r_pmr_max && $r_pmr_max['max_no'] > 0) ? (int)$r_pmr_max['max_no'] + 1 : 1;
         $auto_pmr_id = "PMR" . sprintf("%03d", $no_pmr);
 
-        mysqli_query($koneksi, "INSERT INTO pemeriksaan (id_pemeriksaan, tanggal_periksa, id_pendaftaran, kode_diagnosa, kode_tindakan, status_validasi)
+        mysqli_query($koneksi, "INSERT INTO pemeriksaan (id_pemeriksaan, tanggal_periksa, id_pendaftaran, diagnosa, tindakan, status_validasi)
                                VALUES ('$auto_pmr_id', '$tanggal_periksa', '$id_pendaftaran', '-', '-', 'Belum')");
-        // -----------------------------------------------------------
 
         $notif_sukses = "Pendaftaran online berhasil dikirim dan tersimpan ke riwayat Anda!";
         $aktifkan_tab = "riwayat"; 
@@ -114,8 +130,14 @@ function getNamaPelayanan($kode) {
     return isset($daftar_layanan[$kode]) ? $daftar_layanan[$kode] : $kode;
 }
 
-// AMBIL RIWAYAT KUNJUNGAN BERDASARKAN NO. RM PASIEN YANG SEDANG LOGIN SAJA
-$query_kunjungan = mysqli_query($koneksi, "SELECT * FROM pendaftaran WHERE no_rm = '$no_rm' ORDER BY tanggal_daftar DESC, id_pendaftaran DESC");
+// --- AMBIL RIWAYAT KUNJUNGAN + DIAGNOSA & TINDAKAN DARI TABEL PEMERIKSAAN ---
+$query_kunjungan = mysqli_query($koneksi, "
+    SELECT p.*, pmr.diagnosa, pmr.tindakan 
+    FROM pendaftaran p 
+    LEFT JOIN pemeriksaan pmr ON p.id_pendaftaran = pmr.id_pendaftaran 
+    WHERE p.no_rm = '$no_rm' 
+    ORDER BY p.tanggal_daftar DESC, p.id_pendaftaran DESC
+");
 $total_kunjungan = mysqli_num_rows($query_kunjungan);
 ?>
 <!DOCTYPE html>
@@ -240,10 +262,9 @@ $total_kunjungan = mysqli_num_rows($query_kunjungan);
                         </div>
                         <div class="form-group">
                             <label>Tanggal Rencana Periksa</label>
-                            <input type="date" name="tanggal_periksa" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>" required>
+                            <input type="date" name="tanggal_periksa" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d'); ?>" required>
                         </div>
                         
-                        <!-- Dropdown Jenis Pelayanan Diperbarui dengan ID (PB1-PB6, PW1-PW6, TP1-TP6) -->
                         <div class="form-group">
                             <label>Jenis Pelayanan</label>
                             <select name="id_pelayanan" required>
@@ -290,42 +311,50 @@ $total_kunjungan = mysqli_num_rows($query_kunjungan);
             <div class="section-card">
                 <div class="section-header">Riwayat Kunjungan / Berobat Anda (No. RM: <?php echo htmlspecialchars($no_rm); ?>)</div>
                 <div class="section-body">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>No</th>
-                                <th>ID Pendaftaran</th>
-                                <th>Tgl Daftar</th>
-                                <th>Tgl Periksa</th>
-                                <th>Jenis Pelayanan</th>
-                                <th>Keluhan</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php 
-                            $no = 1;
-                            if ($total_kunjungan > 0) {
-                                mysqli_data_seek($query_kunjungan, 0);
-                                while ($row = mysqli_fetch_assoc($query_kunjungan)) {
-                            ?>
-                            <tr>
-                                <td><?php echo $no++; ?></td>
-                                <td><strong><?php echo htmlspecialchars($row['id_pendaftaran']); ?></strong></td>
-                                <td><?php echo htmlspecialchars($row['tanggal_daftar']); ?></td>
-                                <td><?php echo htmlspecialchars($row['tanggal_periksa']); ?></td>
-                                <td><span style="color: #0284c7; font-weight: 600;"><?php echo htmlspecialchars(getNamaPelayanan($row['id_pelayanan'])); ?></span></td>
-                                <td><?php echo htmlspecialchars($row['keluhan']); ?></td>
-                                <td><span style="color: #0369a1; font-weight: 600;"><?php echo htmlspecialchars($row['status_validasi']); ?></span></td>
-                            </tr>
-                            <?php 
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>ID Pendaftaran</th>
+                                    <th>Tgl Daftar</th>
+                                    <th>Tgl Periksa</th>
+                                    <th>Jenis Pelayanan</th>
+                                    <th>Keluhan</th>
+                                    <th>Diagnosa</th>
+                                    <th>Tindakan</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                $no = 1;
+                                if ($total_kunjungan > 0) {
+                                    mysqli_data_seek($query_kunjungan, 0);
+                                    while ($row = mysqli_fetch_assoc($query_kunjungan)) {
+                                        $diagnosa = (!empty($row['diagnosa']) && $row['diagnosa'] !== '-') ? $row['diagnosa'] : '-';
+                                        $tindakan = (!empty($row['tindakan']) && $row['tindakan'] !== '-') ? $row['tindakan'] : '-';
+                                ?>
+                                <tr>
+                                    <td><?php echo $no++; ?></td>
+                                    <td><strong><?php echo htmlspecialchars($row['id_pendaftaran']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars($row['tanggal_daftar']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['tanggal_periksa']); ?></td>
+                                    <td><span style="color: #0284c7; font-weight: 600;"><?php echo htmlspecialchars(getNamaPelayanan($row['id_pelayanan'])); ?></span></td>
+                                    <td><?php echo htmlspecialchars($row['keluhan']); ?></td>
+                                    <td><strong><?php echo htmlspecialchars($diagnosa); ?></strong></td>
+                                    <td><strong><?php echo htmlspecialchars($tindakan); ?></strong></td>
+                                    <td><span style="color: #0369a1; font-weight: 600;"><?php echo htmlspecialchars($row['status_validasi']); ?></span></td>
+                                </tr>
+                                <?php 
+                                    }
+                                } else {
+                                    echo '<tr><td colspan="9" class="empty-state" style="text-align: center; padding: 20px; color: #94a3b8;">Belum ada riwayat kunjungan berobat yang tercatat untuk pasien ini.</td></tr>';
                                 }
-                            } else {
-                                echo '<tr><td colspan="7" class="empty-state">Belum ada riwayat kunjungan berobat yang tercatat untuk pasien ini.</td></tr>';
-                            }
-                            ?>
-                        </tbody>
-                    </table>
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
