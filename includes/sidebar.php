@@ -37,7 +37,7 @@ $logo_path = file_exists('assets/images/logo.png') ? 'assets/images/logo.png' : 
         <!-- Menu Data Master -->
         <li class="has-dropdown <?php echo $is_master_active ? 'active' : ''; ?>">
             <a href="javascript:void(0)" onclick="toggleDropdown(this)">
-                <span><i class="fa-solid fa-folder-open menu-icon"></i> Data Master</span>
+                <span><i class="fa-solid fa-database menu-icon"></i> Data Master</span>
                 <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </a>
             <ul class="submenu">
@@ -59,7 +59,7 @@ $logo_path = file_exists('assets/images/logo.png') ? 'assets/images/logo.png' : 
         <!-- Menu Pelayanan & Transaksi -->
         <li class="has-dropdown <?php echo $is_transaksi_active ? 'active' : ''; ?>">
             <a href="javascript:void(0)" onclick="toggleDropdown(this)">
-                <span><i class="fa-solid fa-briefcase-medical menu-icon"></i> Pelayanan</span>
+                <span><i class="fa-solid fa-right-left menu-icon"></i> Data Transaksi</span>
                 <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </a>
             <ul class="submenu">
@@ -75,7 +75,7 @@ $logo_path = file_exists('assets/images/logo.png') ? 'assets/images/logo.png' : 
         <!-- Menu Laporan -->
         <li class="has-dropdown <?php echo $is_laporan_active ? 'active' : ''; ?>">
             <a href="javascript:void(0)" onclick="toggleDropdown(this)">
-                <span><i class="fa-solid fa-file-contract menu-icon"></i> Laporan</span>
+                <span><i class="fa-regular fa-file-lines menu-icon"></i> Laporan</span>
                 <i class="fa-solid fa-chevron-down arrow-icon"></i>
             </a>
             <ul class="submenu">
